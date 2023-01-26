@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { StyleSheet, requireNativeComponent, NativeModules, View, Image, Platform, findNodeHandle } from 'react-native';
+import { StyleSheet, requireNativeComponent, NativeModules, View, Image, Platform, findNodeHandle, UIManager } from 'react-native';
 import { ViewPropTypes, ImagePropTypes } from 'deprecated-react-native-prop-types';
 import resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource';
 import TextTrackType from './TextTrackType';
@@ -70,6 +70,40 @@ export default class Video extends Component {
 
   presentFullscreenPlayer = () => {
     this.setNativeProps({ fullscreen: true });
+  };
+
+  pause = () => {
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this._root),
+      UIManager.RCTVideo.Commands.pause.toString(),
+      [],
+    );
+  };
+
+  play = () => {
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this._root),
+      UIManager.RCTVideo.Commands.play.toString(),
+      [],
+    );
+  };
+
+  preload = () => {
+    // TODO: Check for android only
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this._root),
+      UIManager.RCTVideo.Commands.preload.toString(),
+      [],
+    );
+  };
+
+  freeResources = () => {
+    // TODO: Check for android only.
+    UIManager.dispatchViewManagerCommand(
+      findNodeHandle(this._root),
+      UIManager.RCTVideo.Commands.freeResources.toString(),
+      [],
+    );
   };
 
   dismissFullscreenPlayer = () => {
@@ -461,6 +495,8 @@ Video.propTypes = {
     maxBufferMs: PropTypes.number,
     bufferForPlaybackMs: PropTypes.number,
     bufferForPlaybackAfterRebufferMs: PropTypes.number,
+    targetBufferBytes: PropTypes.number,
+    prioritizeTimeOverSize: PropTypes.bool,
   }),
   stereoPan: PropTypes.number,
   rate: PropTypes.number,
@@ -471,6 +507,7 @@ Video.propTypes = {
   ignoreSilentSwitch: PropTypes.oneOf(['ignore', 'obey']),
   reportBandwidth: PropTypes.bool,
   disableFocus: PropTypes.bool,
+  autoLoad: PropTypes.bool,
   controls: PropTypes.bool,
   audioOnly: PropTypes.bool,
   currentTime: PropTypes.number,
