@@ -3,7 +3,8 @@ package com.brentvatne.exoplayer;
 import android.content.Context;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.facebook.react.bridge.Dynamic;
 import com.facebook.react.bridge.ReadableArray;
@@ -13,7 +14,6 @@ import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
-import com.facebook.react.bridge.ReactMethod;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.upstream.RawResourceDataSource;
@@ -54,6 +54,8 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_BUFFER_CONFIG_MAX_BUFFER_MS = "maxBufferMs";
     private static final String PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_MS = "bufferForPlaybackMs";
     private static final String PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = "bufferForPlaybackAfterRebufferMs";
+    private static final String PROP_BUFFER_CONFIG_TARGET_BUFFER_BYTES = "targetBufferBytes";
+    private static final String PROP_BUFFER_CONFIG_PRIORITIZE_TIME_OVER_SIZE = "prioritizeTimeOverSize";
     private static final String PROP_PREVENTS_DISPLAY_SLEEP_DURING_VIDEO_PLAYBACK = "preventsDisplaySleepDuringVideoPlayback";
     private static final String PROP_PROGRESS_UPDATE_INTERVAL = "progressUpdateInterval";
     private static final String PROP_REPORT_BANDWIDTH = "reportBandwidth";
@@ -70,6 +72,12 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_SELECTED_VIDEO_TRACK_VALUE = "value";
     private static final String PROP_HIDE_SHUTTER_VIEW = "hideShutterView";
     private static final String PROP_CONTROLS = "controls";
+    private static final String PROP_AUTO_LOAD = "autoLoad";
+
+    public final int COMMAND_PAUSE = 1;
+    public final int COMMAND_PLAY = 2;
+    public final int COMMAND_PRELOAD = 3;
+    public final int COMMAND_FREE = 4;
 
     private ReactExoplayerConfig config;
 
@@ -156,15 +164,15 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
             }
         } else {
             int identifier = context.getResources().getIdentifier(
-                uriString,
-                "drawable",
-                context.getPackageName()
+                    uriString,
+                    "drawable",
+                    context.getPackageName()
             );
             if (identifier == 0) {
                 identifier = context.getResources().getIdentifier(
-                    uriString,
-                    "raw",
-                    context.getPackageName()
+                        uriString,
+                        "raw",
+                        context.getPackageName()
                 );
             }
             if (identifier > 0) {
@@ -193,7 +201,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
     @ReactProp(name = PROP_SELECTED_VIDEO_TRACK)
     public void setSelectedVideoTrack(final ReactExoplayerView videoView,
-                                     @Nullable ReadableMap selectedVideoTrack) {
+                                      @Nullable ReadableMap selectedVideoTrack) {
         String typeString = null;
         Dynamic value = null;
         if (selectedVideoTrack != null) {
@@ -207,7 +215,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
     @ReactProp(name = PROP_SELECTED_AUDIO_TRACK)
     public void setSelectedAudioTrack(final ReactExoplayerView videoView,
-                                     @Nullable ReadableMap selectedAudioTrack) {
+                                      @Nullable ReadableMap selectedAudioTrack) {
         String typeString = null;
         Dynamic value = null;
         if (selectedAudioTrack != null) {
@@ -314,12 +322,19 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         videoView.setControls(controls);
     }
 
+    @ReactProp(name = PROP_AUTO_LOAD, defaultBoolean = true)
+    public void setAutoLoad(final ReactExoplayerView videoView, final boolean autoLoad) {
+        videoView.setAutoLoad(autoLoad);
+    }
+
     @ReactProp(name = PROP_BUFFER_CONFIG)
     public void setBufferConfig(final ReactExoplayerView videoView, @Nullable ReadableMap bufferConfig) {
         int minBufferMs = DefaultLoadControl.DEFAULT_MIN_BUFFER_MS;
         int maxBufferMs = DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
         int bufferForPlaybackMs = DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
         int bufferForPlaybackAfterRebufferMs = DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
+        int targetBufferBytes = -1;
+        boolean prioritizeTimeOverSize = true;
         if (bufferConfig != null) {
             minBufferMs = bufferConfig.hasKey(PROP_BUFFER_CONFIG_MIN_BUFFER_MS)
                     ? bufferConfig.getInt(PROP_BUFFER_CONFIG_MIN_BUFFER_MS) : minBufferMs;
@@ -329,7 +344,14 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
                     ? bufferConfig.getInt(PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_MS) : bufferForPlaybackMs;
             bufferForPlaybackAfterRebufferMs = bufferConfig.hasKey(PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
                     ? bufferConfig.getInt(PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS) : bufferForPlaybackAfterRebufferMs;
-            videoView.setBufferConfig(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
+            targetBufferBytes = bufferConfig.hasKey(PROP_BUFFER_CONFIG_TARGET_BUFFER_BYTES)
+                    ? bufferConfig.getInt(PROP_BUFFER_CONFIG_TARGET_BUFFER_BYTES) : targetBufferBytes;
+            prioritizeTimeOverSize = bufferConfig.hasKey(PROP_BUFFER_CONFIG_PRIORITIZE_TIME_OVER_SIZE)
+                    ? bufferConfig.getBoolean(PROP_BUFFER_CONFIG_PRIORITIZE_TIME_OVER_SIZE) : prioritizeTimeOverSize;
+
+            bufferForPlaybackAfterRebufferMs = bufferConfig.hasKey(PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                    ? bufferConfig.getInt(PROP_BUFFER_CONFIG_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS) : bufferForPlaybackAfterRebufferMs;
+            videoView.setBufferConfig(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs, targetBufferBytes, prioritizeTimeOverSize);
         }
     }
 
@@ -349,6 +371,35 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         return ResizeMode.RESIZE_MODE_FIT;
     }
 
+    @androidx.annotation.Nullable
+    @Override
+    public Map<String, Integer> getCommandsMap() {
+        return MapBuilder.of(
+                "pause", COMMAND_PAUSE,
+                "play", COMMAND_PLAY,
+                "preload", COMMAND_PRELOAD,
+                "freeResources", COMMAND_FREE
+        );
+    }
+
+    @Override
+    public void receiveCommand(@NonNull ReactExoplayerView view, String commandId, @androidx.annotation.Nullable ReadableArray args) {
+        int commandIdInt = Integer.parseInt(commandId);
+        switch(commandIdInt) {
+            case COMMAND_PAUSE:
+                view.setPausedModifier(true);
+                break;
+            case COMMAND_PLAY:
+                view.setPausedModifier(false);
+                break;
+            case COMMAND_FREE:
+                view.cleanUpResources();
+                break;
+            case COMMAND_PRELOAD:
+                view.prepare();
+                break;
+        }
+    }
     /**
      * toStringMap converts a {@link ReadableMap} into a HashMap.
      *
