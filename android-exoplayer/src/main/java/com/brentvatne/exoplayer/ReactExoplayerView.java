@@ -375,6 +375,9 @@ class ReactExoplayerView extends FrameLayout implements
         if (indexOfPC != -1) {
             removeViewAt(indexOfPC);
         }
+        if (getChildCount() < 1) {
+            return;
+        }
         addView(playerControlView, 1, layoutParams);
     }
 
