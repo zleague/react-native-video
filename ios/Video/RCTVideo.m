@@ -502,6 +502,9 @@ static int const RCTVideoUnset = -1;
   AVURLAsset *asset;
   if (!uri || [uri isEqualToString:@""]) {
     DebugLog(@"Could not find video URL in source '%@'", source);
+      if (_player != nil) {
+          [_player replaceCurrentItemWithPlayerItem:nil];
+      }
     return;
   }
   
